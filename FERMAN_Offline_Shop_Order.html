@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#123b70">
+<title>FERMAN — Shop Order</title>
+<style>
+:root{--blue:#123b70;--light:#eaf2fb;--red:#d9363e;--ink:#172334;--muted:#65758b}
+*{box-sizing:border-box}body{margin:0;background:#f4f7fb;color:var(--ink);font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{background:linear-gradient(125deg,#123b70,#2367a8);color:white;padding:22px 18px 18px}
+.brand{display:flex;align-items:center;gap:12px}.mark{width:54px;height:54px;border:2px solid #fff;border-radius:15px;display:grid;place-items:center;font-weight:900;font-size:20px;box-shadow:inset 0 -5px 0 #d9363e}
+h1{font-size:25px;margin:0;letter-spacing:1.5px}header p{margin:5px 0 0;color:#e3efff;font-size:13px}
+main{max-width:760px;margin:auto;padding:16px}.panel{background:white;border-radius:16px;padding:15px;margin:0 0 14px;box-shadow:0 3px 14px #19365b0c}
+label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:0 0 6px}
+input,select,button{font:inherit}input,select{width:100%;padding:11px;border:1px solid #d6dfeb;border-radius:10px;background:white;color:var(--ink)}
+.row{display:flex;gap:9px;align-items:end}.row>*{flex:1}.row button{flex:0 0 auto}
+button{border:0;border-radius:10px;padding:11px 14px;background:var(--blue);color:white;font-weight:700;cursor:pointer}
+button.secondary{background:var(--light);color:var(--blue)}button.danger{background:#fff0f0;color:#b4232c}
+.tabs{display:flex;gap:8px;margin-bottom:12px}.tab{flex:1;background:#e8eef6;color:var(--blue)}.tab.active{background:var(--blue);color:white}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}.toolbar button{flex:1}
+.product{display:grid;grid-template-columns:26px 1fr 104px 38px;gap:9px;align-items:center;padding:12px 0;border-bottom:1px solid #edf1f6}
+.product:last-child{border-bottom:0}.product input[type=checkbox]{width:20px;height:20px;accent-color:var(--blue)}
+.pname{font-weight:700}.meta{font-size:12px;color:var(--muted);margin-top:3px}
+.qty{display:flex;align-items:center;gap:4px}.qty input{padding:8px 4px;text-align:center}.qty button{padding:8px 10px}
+.iconbtn{padding:8px;background:#f0f4f9;color:var(--blue)}
+.empty{color:var(--muted);text-align:center;padding:24px 8px}
+.small{font-size:12px;color:var(--muted);line-height:1.5}
+@media(max-width:420px){.product{grid-template-columns:24px 1fr 92px 34px;gap:6px}.qty button{padding:7px}.qty input{font-size:14px}}
+@media print{body{background:white}header{background:white;color:#123b70;padding:0 0 12px;border-bottom:2px solid #123b70}header p{color:#555}main{padding:0}.no-print,.product button,.product input[type=checkbox]{display:none!important}.panel{box-shadow:none;padding:8px 0;margin:0}.product{grid-template-columns:1fr 90px;padding:7px 0}.product .meta{display:block}#productsTitle:after{content:" — FERMAN order list"}}
+</style>
+</head>
+<body>
+<header>
+ <div class="brand"><div class="mark">F</div><div><h1>FERMAN</h1><p>DRINKS &amp; CIGARETTES · SHOP ORDER</p></div></div>
+</header>
+<main>
+ <section class="panel no-print">
+  <div class="row"><div><label for="shopSelect">CURRENT SHOP</label><select id="shopSelect"></select></div><button id="addShop" class="secondary">＋ Shop</button></div>
+  <div class="row" style="margin-top:10px"><div><label for="newShop">Add or rename shop</label><input id="newShop" placeholder="e.g. Jiyan Spätkauf Berlin"></div><button id="saveShop">Save name</button></div>
+ </section>
+ <section class="panel">
+  <div class="tabs no-print"><button class="tab active" data-cat="Drinks">Drinks</button><button class="tab" data-cat="Cigarettes">Cigarettes</button></div>
+  <div class="row no-print" style="margin-bottom:12px"><div><label for="search">Search products</label><input id="search" placeholder="Search…"></div><button id="addProduct" class="secondary">＋ Product</button></div>
+  <div class="row no-print" style="margin-bottom:12px"><div><label for="productName">Product name</label><input id="productName" placeholder="e.g. Coca-Cola"></div><div><label for="productSize">Size / type</label><input id="productSize" placeholder="0.33 L or 20 pack"></div><button id="saveProduct">Save</button></div>
+  <div id="productsTitle" style="font-weight:800;margin:8px 0 4px">Drinks</div>
+  <div id="products"></div>
+ </section>
+ <section class="panel">
+  <div class="toolbar no-print"><button id="printOrder">Export order / Save PDF</button><button id="clearQty" class="secondary">Reset quantities</button></div>
+  <p class="small no-print">Tick the products you want to order and enter the quantity. Your shops and product lists are saved on this phone only. This app works offline after you save the file.</p>
+ </section>
+</main>
+<script>
+const KEY='ferman_offline_v1';
+let data=JSON.parse(localStorage.getItem(KEY)||'null')||{shops:[{id:'shop1',name:'My Shop',products:[]}],current:'shop1'};
+let category='Drinks',editing=null;
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function shop(){return data.shops.find(s=>s.id===data.current)||data.shops[0]}
+function renderShops(){
+ $('shopSelect').innerHTML=data.shops.map(s=>`<option value="${s.id}" ${s.id===data.current?'selected':''}>${esc(s.name)}</option>`).join('');
+ $('newShop').value=shop().name;
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function render(){
+ renderShops();$('productsTitle').textContent=category;
+ document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.cat===category));
+ const q=$('search').value.toLowerCase();
+ const items=shop().products.filter(p=>p.category===category&&p.name.toLowerCase().includes(q));
+ $('products').innerHTML=items.length?items.map(p=>`<div class="product">
+ <input type="checkbox" aria-label="Include ${esc(p.name)}" ${p.selected?'checked':''} onchange="change('${p.id}','selected',this.checked)">
+ <div><div class="pname">${esc(p.name)}</div><div class="meta">${esc(p.size||'')}</div></div>
+ <div class="qty"><button class="secondary" onclick="step('${p.id}',-1)">−</button><input aria-label="Quantity" type="number" min="0" step="1" value="${Number(p.qty)||0}" onchange="change('${p.id}','qty',this.value)"><button class="secondary" onclick="step('${p.id}',1)">＋</button></div>
+ <button class="iconbtn" title="Edit or delete" onclick="edit('${p.id}')">⋯</button>
+ </div>`).join(''):'<div class="empty">No products yet. Add your first product above.</div>';
+}
+function change(id,key,value){let p=shop().products.find(x=>x.id===id);if(!p)return;p[key]=key==='qty'?Math.max(0,Number(value)||0):value;save()}
+function step(id,n){let p=shop().products.find(x=>x.id===id);p.qty=Math.max(0,(Number(p.qty)||0)+n);save();render()}
+function edit(id){let p=shop().products.find(x=>x.id===id);if(!p)return;let name=prompt('Product name:',p.name);if(name===null)return;if(!name.trim()){if(confirm('Delete this product?'))shop().products=shop().products.filter(x=>x.id!==id)}else{p.name=name.trim();let size=prompt('Size / type:',p.size||'');if(size!==null)p.size=size.trim();}save();render()}
+$('shopSelect').onchange=e=>{data.current=e.target.value;save();render()};
+$('addShop').onclick=()=>{$('newShop').value='';$('newShop').focus()};
+$('saveShop').onclick=()=>{let name=$('newShop').value.trim();if(!name)return alert('Enter a shop name.');let s=shop();if(s.name==='My Shop'&&s.products.length===0){s.name=name}else if(name!==s.name){if(data.shops.some(x=>x.name.toLowerCase()===name.toLowerCase()))return alert('A shop with that name already exists.');data.shops.push({id:'s'+Date.now(),name,products:[]});data.current=data.shops[data.shops.length-1].id;}save();render()};
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{category=b.dataset.cat;editing=null;render()});
+$('addProduct').onclick=()=>{$('productName').focus()};
+$('saveProduct').onclick=()=>{let name=$('productName').value.trim(),size=$('productSize').value.trim();if(!name)return alert('Enter a product name.');shop().products.push({id:'p'+Date.now(),name,size,category,qty:0,selected:false});$('productName').value='';$('productSize').value='';save();render()};
+$('search').oninput=render;
+$('clearQty').onclick=()=>{if(confirm('Reset all quantities and untick products in this shop?')){shop().products.forEach(p=>{p.qty=0;p.selected=false});save();render()}};
+$('printOrder').onclick=()=>{let chosen=shop().products.filter(p=>p.selected&&Number(p.qty)>0);if(!chosen.length)return alert('Tick at least one product and set its quantity first.');let old=category;document.querySelectorAll('.tab').forEach(b=>b.style.display='none');$('search').style.display='none';$('addProduct').style.display='none';$('productName').parentElement.style.display='none';$('productSize').parentElement.style.display='none';$('saveProduct').style.display='none';$('products').innerHTML=chosen.map(p=>`<div class="product"><div><div class="pname">${esc(p.name)}</div><div class="meta">${esc(p.size||'')}</div></div><strong>${Number(p.qty)}</strong></div>`).join('');$('productsTitle').textContent=shop().name+' — Order';window.print();render();document.querySelectorAll('.tab').forEach(b=>b.style.display='');$('search').style.display='';$('addProduct').style.display='';$('productName').parentElement.style.display='';$('productSize').parentElement.style.display='';$('saveProduct').style.display=''};
+render();
+</script>
+</body>
+</html>
